@@ -11,11 +11,36 @@ pygame.display.set_caption("Platformer")
 WIDTH, HEIGHT = 1000, 800
 FPS = 60
 PLAYER_VEL = 5
+game_running = False
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
 def flip(sprites):
     return[pygame.transform.flip(sprite, True, False) for sprite in sprites]
+
+def draw_menu(win, width, height):
+    win.fill((0, 0, 0))  # Fill the background with black or any color you prefer
+
+    font = pygame.font.SysFont(None, 60)
+    font_2 = pygame.font.SysFont(None, 40)
+    font_3 = pygame.font.SysFont(None, 20)
+    text = font.render('Welcome to the Platformer!', True, (255, 255, 255))
+    text_2 = font_2.render('A work by Sefrid Kapllani!', True, (255, 255, 255))
+    text_3 = font_3.render('Press any key to START!', True, (255, 255, 255))
+    
+    # Calculate the positions of the two text surfaces so they don't overlap
+    text_rect = text.get_rect(center=(width / 2, height / 2 - 30))  # Positioning slightly above center
+    text_rect_2 = text_2.get_rect(center=(width / 2, height / 2 + 30))  # Positioning slightly below center
+    text_rect_3 = text_3.get_rect(center=(width / 2, height / 2 + 90))  # Positioning slightly below center
+
+    # Blit each text surface separately onto the window
+    win.blit(text, text_rect)
+    win.blit(text_2, text_rect_2)
+    win.blit(text_3, text_rect_3)
+
+    # Update the display
+    pygame.display.update()
+
 
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     path = join("assets", dir1, dir2)
@@ -184,6 +209,40 @@ class Fire(Object):
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
 
+class Button:
+    def __init__(self, image, pos, action):
+        self.image = image
+        self.rect = self.image.get_rect(center=pos)
+        self.action = action
+    
+    def draw(self, win):
+        win.blit(self.image, self.rect)
+    
+    def is_clicked(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.action()
+
+def load_buttons():
+    path = "assets/Menu/Buttons"  # Update with the correct path
+    return {
+        "start": Button(pygame.image.load(os.path.join(path, "Play.png")), (WIDTH // 2, HEIGHT // 2 - 100), start_game),
+        "levels": Button(pygame.image.load(os.path.join(path, "Levels.png")), (WIDTH // 2, HEIGHT // 2), view_levels),
+        "achievements": Button(pygame.image.load(os.path.join(path, "Achievements.png")), (WIDTH // 2, HEIGHT // 2 + 100), view_achievements),
+        "settings": Button(pygame.image.load(os.path.join(path, "Settings.png")), (WIDTH // 2, HEIGHT // 2 + 200), settings)
+    }
+
+def start_game():
+    global game_running
+    game_running = True  # Set the game state to running
+
+def view_levels():
+    pass
+def view_achievements():
+    pass
+def settings():
+    pass
+
 def get_background(name):
     image = pygame.image.load(join("assets", "Background", name))
     _, _, width, height = image.get_rect()
@@ -249,6 +308,42 @@ def handle_move(player, objects):
             player.make_hit()
 
 def main(window):
+    global game_running
+    clock = pygame.time.Clock()
+
+    # First menu loop: display welcome message and wait for any key press
+    menu_open = True
+    while menu_open:
+        draw_menu(window, WIDTH, HEIGHT)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return  # Exit the function, which will quit the game since we're in the main function
+            if event.type == pygame.KEYDOWN:  # Start the game on any key press
+                menu_open = False
+
+    # Load buttons and prepare for second menu
+    buttons = load_buttons()
+
+    # Second menu loop: display options menu
+    second_menu_open = True
+    while second_menu_open:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return  # Exit the function, which will quit the game since we're in the main function
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                for button_name, button in buttons.items():
+                    if button.rect.collidepoint(event.pos):
+                        button.action()
+                        if button_name == "start":  # If the start button was pressed
+                            second_menu_open = False  # Close the menu to start the game
+
+        window.fill((0, 0, 0))  # Clear the window or draw a background
+        for button in buttons.values():
+            button.draw(window)
+        pygame.display.update()
+        clock.tick(FPS)
+
+
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
     block_size = 96
@@ -258,32 +353,43 @@ def main(window):
     start_x = 0
     blocks_in_column = HEIGHT // block_size
     starting_column = [Block(start_x, y * block_size, block_size) for y in range(blocks_in_column)]
-
     floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, WIDTH * 2 // block_size)]
     objects = [*starting_column, *floor, Block(0, HEIGHT - block_size * 2, block_size), Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
     offset_x = 0
     scroll_area_width = 200
     run = True
-    while run:
-        clock.tick(FPS)
-        
+    while game_running:
+    # Process input/events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                run = False
-                break
+                game_running = False  # Exit the game loop
+            
+            # Handle other events like key presses, mouse clicks etc.
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and player.jump_count < 2:
-                    player.jump()
+                if event.key == pygame.K_ESCAPE:
+                    game_running = False  # Exit on ESC key press
 
-        player.loop(FPS)
-        fire.loop()
-        handle_move(player, objects)
-        draw(window, background, bg_image, player, objects, offset_x)
-        if((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or ((player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
-            offset_x += player.x_vel
+        while run:
+            clock.tick(FPS) 
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    break
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and player.jump_count < 2:
+                        player.jump()
+            player.loop(FPS)
+            fire.loop()
+            handle_move(player, objects)
+            draw(window, background, bg_image, player, objects, offset_x)
+            if((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or ((player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
+                offset_x += player.x_vel
     pygame.quit()
     quit()
 
 if __name__ == "__main__":
+    pygame.init()
+    pygame.display.set_caption("Platformer")
+    window = pygame.display.set_mode((WIDTH, HEIGHT))
     main(window)
 
