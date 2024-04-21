@@ -18,15 +18,21 @@ window = pygame.display.set_mode((WIDTH, HEIGHT))
 def flip(sprites):
     return[pygame.transform.flip(sprite, True, False) for sprite in sprites]
 
-def draw_menu(win, width, height):
-    win.fill((0, 0, 0))  # Fill the background with black or any color you prefer
+def draw_menu(win, width, height, background_image_path):
+    # Load the background image
+    background_image = pygame.image.load(background_image_path)
+    # Resize the background image to match the window size
+    background_image = pygame.transform.scale(background_image, (width, height))
+    
+    # Blit the background image onto the window
+    win.blit(background_image, (0, 0))
 
     font = pygame.font.SysFont(None, 60)
     font_2 = pygame.font.SysFont(None, 40)
     font_3 = pygame.font.SysFont(None, 20)
-    text = font.render('Welcome to the Platformer!', True, (255, 255, 255))
-    text_2 = font_2.render('A work by Sefrid Kapllani!', True, (255, 255, 255))
-    text_3 = font_3.render('Press any key to START!', True, (255, 255, 255))
+    text = font.render('Welcome to the Platformer!', True, (0, 0, 0))
+    text_2 = font_2.render('A work by Sefrid Kapllani!', True, (0, 0, 0))
+    text_3 = font_3.render('Press any key to START!', True, (0, 0, 0))
     
     # Calculate the positions of the two text surfaces so they don't overlap
     text_rect = text.get_rect(center=(width / 2, height / 2 - 30))  # Positioning slightly above center
@@ -40,6 +46,14 @@ def draw_menu(win, width, height):
 
     # Update the display
     pygame.display.update()
+
+# Example usage
+pygame.init()
+window_width = 800
+window_height = 600
+window = pygame.display.set_mode((window_width, window_height))
+background_image_path = "assets/Background/Screenshot.png"  # Change this to the path of your image
+draw_menu(window, window_width, window_height, background_image_path)
 
 
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):
@@ -74,7 +88,6 @@ class Player(pygame.sprite.Sprite):
     GRAVITY = 1
     SPRITES = load_sprite_sheets("MainCharacters", "MaskDude", 32, 32, True)
     ANIMATION_DELAY = 5
-
     def __init__(self, x, y, width, height):
         super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
@@ -87,6 +100,7 @@ class Player(pygame.sprite.Sprite):
         self.jump_count = 0
         self.hit = False
         self.hit_count = 0
+        self.score = 0 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
         self.animation_count = 0
@@ -163,6 +177,20 @@ class Player(pygame.sprite.Sprite):
     def draw(self, win, offset_x):
         win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
+class Collectible(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_path, name=""):
+        super().__init__()
+        self.image = pygame.image.load(image_path).convert_alpha()
+        self.rect = self.image.get_rect(topleft=(x, y))
+        self.mask = pygame.mask.from_surface(self.image)
+        self.name = name  # Add a name attribute
+
+    def draw(self, win, offset_x):
+        win.blit(self.image, (self.rect.x - offset_x, self.rect.y))
+
+    def collect(self):
+        self.kill()
+
 class Object(pygame.sprite.Sprite):
     def __init__(self, x , y, width, height, name=None):
         self.rect = pygame.Rect(x,y,width,height)
@@ -202,11 +230,15 @@ class Fire(Object):
         sprites = self.fire[self.animation_name]
         sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
         self.image = sprites[sprite_index]
-        self.animation_count != 1
+
+        # Increment the animation count
+        self.animation_count += 1
 
         self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
         self.mask = pygame.mask.from_surface(self.image)
-        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+
+        # Reset the animation count if it exceeds the number of sprites times the delay
+        if self.animation_count // self.ANIMATION_DELAY >= len(sprites):
             self.animation_count = 0
 
 class Button:
@@ -307,83 +339,102 @@ def handle_move(player, objects):
         if obj and obj.name == "fire":
             player.make_hit()
 
-def main(window):
-    global game_running
+def draw_score(surface, score, x, y):
+    print(f"Drawing score: {score}")  # Debug print
+    font = pygame.font.SysFont('arial', 30)
+    score_text = font.render(f'Score: {score}', True, (255, 255, 255))
+    surface.blit(score_text, (x, y))
+
+def main(window, background_image_path):
     clock = pygame.time.Clock()
 
-    # First menu loop: display welcome message and wait for any key press
     menu_open = True
     while menu_open:
-        draw_menu(window, WIDTH, HEIGHT)
+        draw_menu(window, WIDTH, HEIGHT, background_image_path)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return  # Exit the function, which will quit the game since we're in the main function
-            if event.type == pygame.KEYDOWN:  # Start the game on any key press
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
                 menu_open = False
 
-    # Load buttons and prepare for second menu
     buttons = load_buttons()
 
-    # Second menu loop: display options menu
+    # Second menu loop
     second_menu_open = True
     while second_menu_open:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return  # Exit the function, which will quit the game since we're in the main function
+                second_menu_open = False
             if event.type == pygame.MOUSEBUTTONDOWN:
                 for button_name, button in buttons.items():
                     if button.rect.collidepoint(event.pos):
                         button.action()
                         if button_name == "start":  # If the start button was pressed
                             second_menu_open = False  # Close the menu to start the game
-
+                        
         window.fill((0, 0, 0))  # Clear the window or draw a background
         for button in buttons.values():
             button.draw(window)
         pygame.display.update()
         clock.tick(FPS)
 
-
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
+    objects = []
     block_size = 96
     player = Player(100, 100, 50, 50)
-    fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
-    fire.on()
+    fire_objects = [Fire(100, HEIGHT - block_size - 64, 16, 32), Fire(150, HEIGHT - block_size - 64, 16, 32)]
     start_x = 0
+    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, WIDTH * 2 // block_size)]
     blocks_in_column = HEIGHT // block_size
     starting_column = [Block(start_x, y * block_size, block_size) for y in range(blocks_in_column)]
-    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, WIDTH * 2 // block_size)]
-    objects = [*starting_column, *floor, Block(0, HEIGHT - block_size * 2, block_size), Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
+    last_vertical_block_x = starting_column[-1].rect.right
+    fruits = []
+    fruit_spacing = 5  # This means an apple every 5 blocks
+    for i, block in enumerate(floor):
+        if i % fruit_spacing == 0 and block.rect.x > last_vertical_block_x:
+            fruits.append(Collectible(block.rect.x, block.rect.y - block_size, 'assets/Items/Fruits/Apple.png'))
+    objects = [*starting_column, *floor, Block(0, HEIGHT - block_size * 2, block_size), Block(block_size * 2, HEIGHT - block_size * 3, block_size), Block(block_size * 3, HEIGHT - block_size * 3, block_size), *fire_objects]
     offset_x = 0
     scroll_area_width = 200
+    objects.extend(floor)
+    for fire in fire_objects:
+        fire.on()
+        objects.append(fire)  # Add fire objects to the list
+    fruits = [Collectible(block.rect.x, block.rect.y - block_size, 'assets/Items/Fruits/Apple.png') for block in floor]
+    objects.extend(fruits)  # Add fruit objects to the list
     run = True
-    while game_running:
-    # Process input/events
+    while run:
+        clock.tick(FPS) 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                game_running = False  # Exit the game loop
-            
-            # Handle other events like key presses, mouse clicks etc.
+                run = False
+                break
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    game_running = False  # Exit on ESC key press
+                if event.key == pygame.K_SPACE and player.jump_count < 2:
+                    player.jump()
 
-        while run:
-            clock.tick(FPS) 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
-                    break
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE and player.jump_count < 2:
-                        player.jump()
-            player.loop(FPS)
+        player.loop(FPS)
+        for fire in fire_objects:
             fire.loop()
-            handle_move(player, objects)
-            draw(window, background, bg_image, player, objects, offset_x)
-            if((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or ((player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
-                offset_x += player.x_vel
+
+        for fruit in fruits[:]:  # Use a slice copy to avoid issues when removing items
+            if pygame.sprite.collide_mask(player, fruit):
+                fruit.collect()
+                player.score += 1
+                objects.remove(fruit)  # Remove from objects list
+                fruits.remove(fruit)  # Remove from fruits list
+
+        # Draw everything including fruits
+        for obj in objects:
+            obj.draw(window, player.rect.x - player.rect.width // 2)  # Adjust as necessary for scrolling
+        handle_move(player, objects)
+        draw(window, background, bg_image, player, objects, offset_x)
+        draw_score(window, player.score, WIDTH - 120, 10)
+        if((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or ((player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
+            offset_x += player.x_vel
+        pygame.display.update()  # Update the display
     pygame.quit()
     quit()
 
@@ -391,5 +442,5 @@ if __name__ == "__main__":
     pygame.init()
     pygame.display.set_caption("Platformer")
     window = pygame.display.set_mode((WIDTH, HEIGHT))
-    main(window)
+    main(window, background_image_path)
 
