@@ -1,6 +1,4 @@
 import os
-import random
-import math
 import pygame
 from os import listdir
 from os.path import isfile, join
@@ -31,7 +29,7 @@ def draw_menu(win, width, height, background_image_path):
     font_2 = pygame.font.SysFont(None, 40)
     font_3 = pygame.font.SysFont(None, 20)
     text = font.render('Welcome to the Platformer!', True, (0, 0, 0))
-    text_2 = font_2.render('A work by Sefrid Kapllani!', True, (0, 0, 0))
+    text_2 = font_2.render('FIND THE APPLE!', True, (0, 0, 0))
     text_3 = font_3.render('Press any key to START!', True, (0, 0, 0))
     
     # Calculate the positions of the two text surfaces so they don't overlap
@@ -259,9 +257,6 @@ def load_buttons():
     path = "assets/Menu/Buttons"  # Update with the correct path
     return {
         "start": Button(pygame.image.load(os.path.join(path, "Play.png")), (WIDTH // 2, HEIGHT // 2 - 100), start_game),
-        "levels": Button(pygame.image.load(os.path.join(path, "Levels.png")), (WIDTH // 2, HEIGHT // 2), view_levels),
-        "achievements": Button(pygame.image.load(os.path.join(path, "Achievements.png")), (WIDTH // 2, HEIGHT // 2 + 100), view_achievements),
-        "settings": Button(pygame.image.load(os.path.join(path, "Settings.png")), (WIDTH // 2, HEIGHT // 2 + 200), settings)
     }
 
 def start_game():
@@ -384,26 +379,25 @@ def main(window, background_image_path):
     objects = []
     block_size = 96
     player = Player(100, 100, 50, 50)
-    fire_objects = [Fire(100, HEIGHT - block_size - 64, 16, 32), Fire(150, HEIGHT - block_size - 64, 16, 32)]
-    start_x = 0
-    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, WIDTH * 2 // block_size)]
-    blocks_in_column = HEIGHT // block_size
-    starting_column = [Block(start_x, y * block_size, block_size) for y in range(blocks_in_column)]
-    last_vertical_block_x = starting_column[-1].rect.right
-    fruits = []
-    fruit_spacing = 5  # This means an apple every 5 blocks
-    for i, block in enumerate(floor):
-        if i % fruit_spacing == 0 and block.rect.x > last_vertical_block_x:
-            fruits.append(Collectible(block.rect.x, block.rect.y - block_size, 'assets/Items/Fruits/Apple.png'))
-    objects = [*starting_column, *floor, Block(0, HEIGHT - block_size * 2, block_size), Block(block_size * 2, HEIGHT - block_size * 3, block_size), Block(block_size * 3, HEIGHT - block_size * 3, block_size), *fire_objects]
     offset_x = 0
     scroll_area_width = 200
-    objects.extend(floor)
+
+    fire_objects = [Fire(100, HEIGHT - block_size - 64, 16, 32), Fire(150, HEIGHT - block_size - 64, 16, 32), Fire(-50, HEIGHT - block_size - 64, 16, 32), Fire(300, HEIGHT - block_size - 64, 16, 32), Fire(-100, HEIGHT - block_size - 64, 16, 32), Fire(-150, HEIGHT - block_size - 64, 16, 32), Fire(-370, HEIGHT - block_size * 2 - 64, 16, 32)]
+    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, WIDTH * 2 // block_size)]
+
+    single_fruit_position = floor[1].rect.x
+    
+    objects = [ *floor, Block(0, HEIGHT - block_size * 2, block_size), Block(block_size * 2, HEIGHT - block_size * 3, block_size), Block(block_size * 3, HEIGHT - block_size * 4, block_size), Block(block_size * 4, HEIGHT - block_size * 2, block_size), Block(block_size * -4, HEIGHT - block_size * 2, block_size), Block(block_size * -3, HEIGHT - block_size * 3, block_size), *fire_objects]
+    
     for fire in fire_objects:
         fire.on()
         objects.append(fire)  # Add fire objects to the list
-    fruits = [Collectible(block.rect.x, block.rect.y - block_size, 'assets/Items/Fruits/Apple.png') for block in floor]
-    objects.extend(fruits)  # Add fruit objects to the list
+
+    fruits = [Collectible(single_fruit_position, HEIGHT - block_size * 2 - 32, 'assets/Items/Fruits/Apple.png')]  # Adjust y-position if necessary
+
+    objects.extend(floor)
+    objects.extend(fruits)
+
     run = True
     while run:
         clock.tick(FPS) 
